@@ -45,6 +45,33 @@ scaler = MinMaxScaler()
 # scaler.fit(X)
 
 # Desescalar las predicciones futuras
+# Suponemos que la variable objetivo es la última columna, por lo que necesitamos usar el mismo scaler
+future_predictions_descaled = scaler.inverse_transform(
+    np.concatenate((np.zeros((12, n_features)), future_predictions.reshape(-1, 1)), axis=1)
+)[:, -1]
+
+
+import matplotlib.pyplot as plt
+
+# Supongamos que tus datos originales están en un DataFrame llamado 'data'
+# data
+
+# Crear una serie temporal con las predicciones futuras
+future_dates = pd.date_range(start=data.index[-1], periods=13, freq='M')[1:]
+future_series = pd.Series(future_predictions_descaled.flatten(), index=future_dates)
+
+# Visualizar los resultados
+plt.figure(figsize=(12, 6))
+plt.plot(data.index, data['inflacion'], label='Datos reales')
+plt.plot(future_series.index, future_series, label='Pronóstico', color='red')
+plt.legend()
+plt.show()
+
+
+
+
+
+# Desescalar las predicciones futuras
 future_predictions_descaled = scaler.inverse_transform(future_predictions.reshape(-1, 1))
 
 import matplotlib.pyplot as plt
