@@ -3,9 +3,38 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense
+import matplotlib.pyplot as plt
 
 # Supongamos que ya tienes tus datos en DataFrame
-# X_train, y_train, X_test, y_test
+# data = pd.DataFrame(...)
+
+# Dividir los datos en entrenamiento y prueba
+train_data = data[:int(0.8 * len(data))]
+test_data = data[int(0.8 * len(data)):]
+
+# Escalar los datos
+scaler = MinMaxScaler()
+scaled_train_data = scaler.fit_transform(train_data)
+scaled_test_data = scaler.transform(test_data)
+
+# Crear los conjuntos de entrenamiento y prueba
+# Asumimos que tenemos 12 pasos de tiempo y 16 características
+X_train, y_train = [], []
+X_test, y_test = [], []
+
+time_steps = 12
+n_features = 16
+
+for i in range(time_steps, len(scaled_train_data)):
+    X_train.append(scaled_train_data[i-time_steps:i, :-1])  # Las primeras 16 columnas son características
+    y_train.append(scaled_train_data[i, -1])  # La última columna es la variable objetivo
+
+for i in range(time_steps, len(scaled_test_data)):
+    X_test.append(scaled_test_data[i-time_steps:i, :-1])
+    y_test.append(scaled_test_data[i, -1])
+
+X_train, y_train = np.array(X_train), np.array(y_train)
+X_test, y_test = np.array(X_test), np.array(y_test)
 
 # Crear y entrenar el modelo
 model = Sequential()
@@ -16,30 +45,28 @@ model.compile(optimizer='adam', loss='mean_squared_error')
 
 model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_test, y_test), verbose=1)
 
-# Supongamos que ya tienes tus datos de prueba preparados
-# X_test, y_test
-
 # Generar predicciones iniciales en el conjunto de prueba
 predictions = model.predict(X_test)
 
 # Inicializar una lista para almacenar las predicciones futuras
 future_predictions = []
 
-# Usar las últimas 12 observaciones de prueba para predecir los próximos 12 meses
-input_seq = X_test[-1, :, :]
+# Usar las últimas observaciones de prueba para predecir los próximos 24 meses
+input_seq = X_test[-1, :, :]  # Última secuencia del conjunto de prueba
 
-for _ in range(12):
+for _ in range(24):
+    # Realizar la predicción
     pred = model.predict(input_seq.reshape(1, input_seq.shape[0], input_seq.shape[1]))
     future_predictions.append(pred[0, 0])
     
     # Actualizar input_seq agregando la nueva predicción y eliminando la más antigua
-    input_seq = np.append(input_seq[1:], pred[0, 0]).reshape(input_seq.shape[0], input_seq.shape[1])
+    new_input = np.append(input_seq[1:], np.array([[pred[0, 0]] * n_features]), axis=0)  # Reemplaza una fila completa de 16 características
+    input_seq = new_input
 
 # Convertir las predicciones futuras a una serie temporal o DataFrame
 future_predictions = np.array(future_predictions)
 
-
-# Supongamos que la variable objetivo es la última columna, por lo que necesitamos usar el mismo scaler
+# Desescalar las predicciones futuras
 # Crear una matriz de ceros para las características y agregar las predicciones para desescalar
 dummy_features = np.zeros((future_predictions.shape[0], n_features - 1))
 future_predictions_scaled = np.concatenate((dummy_features, future_predictions.reshape(-1, 1)), axis=1)
@@ -47,14 +74,8 @@ future_predictions_scaled = np.concatenate((dummy_features, future_predictions.r
 # Desescalar las predicciones futuras
 future_predictions_descaled = scaler.inverse_transform(future_predictions_scaled)[:, -1]
 
-
-import matplotlib.pyplot as plt
-
-# Supongamos que tus datos originales están en un DataFrame llamado 'data'
-# data
-
 # Crear una serie temporal con las predicciones futuras
-future_dates = pd.date_range(start=data.index[-1], periods=13, freq='M')[1:]
+future_dates = pd.date_range(start=data.index[-1], periods=25, freq='M')[1:]
 future_series = pd.Series(future_predictions_descaled.flatten(), index=future_dates)
 
 # Visualizar los resultados
@@ -63,5 +84,6 @@ plt.plot(data.index, data['inflacion'], label='Datos reales')
 plt.plot(future_series.index, future_series, label='Pronóstico', color='red')
 plt.legend()
 plt.show()
+
 
 
