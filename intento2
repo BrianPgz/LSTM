@@ -1,0 +1,65 @@
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense
+
+# Supongamos que ya tienes tus datos en DataFrame
+# X_train, y_train, X_test, y_test
+
+# Crear y entrenar el modelo
+model = Sequential()
+model.add(LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+model.add(LSTM(50))
+model.add(Dense(1))
+model.compile(optimizer='adam', loss='mean_squared_error')
+
+model.fit(X_train, y_train, epochs=100, batch_size=32, validation_data=(X_test, y_test), verbose=1)
+
+# Supongamos que ya tienes tus datos de prueba preparados
+# X_test, y_test
+
+# Generar predicciones iniciales en el conjunto de prueba
+predictions = model.predict(X_test)
+
+# Inicializar una lista para almacenar las predicciones futuras
+future_predictions = []
+
+# Usar las últimas 12 observaciones de prueba para predecir los próximos 12 meses
+input_seq = X_test[-1, :, :]
+
+for _ in range(12):
+    pred = model.predict(input_seq.reshape(1, input_seq.shape[0], input_seq.shape[1]))
+    future_predictions.append(pred[0, 0])
+    
+    # Actualizar input_seq agregando la nueva predicción y eliminando la más antigua
+    input_seq = np.append(input_seq[1:], pred[0, 0]).reshape(input_seq.shape[0], input_seq.shape[1])
+
+# Convertir las predicciones futuras a una serie temporal o DataFrame
+future_predictions = np.array(future_predictions)
+
+
+# Supongamos que tienes un scaler
+scaler = MinMaxScaler()
+# fit scaler en todo el dataset si es necesario
+# scaler.fit(X)
+
+# Desescalar las predicciones futuras
+future_predictions_descaled = scaler.inverse_transform(future_predictions.reshape(-1, 1))
+
+import matplotlib.pyplot as plt
+
+# Supongamos que tus datos originales están en un DataFrame
+# data
+
+# Crear una serie temporal con las predicciones futuras
+future_dates = pd.date_range(start=data.index[-1], periods=13, freq='M')[1:]
+future_series = pd.Series(future_predictions_descaled.flatten(), index=future_dates)
+
+# Visualizar los resultados
+plt.figure(figsize=(12, 6))
+plt.plot(data.index, data['inflacion'], label='Datos reales')
+plt.plot(future_series.index, future_series, label='Pronóstico', color='red')
+plt.legend()
+plt.show()
+
