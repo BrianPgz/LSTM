@@ -188,3 +188,46 @@ agrupaciones y outliers de manera más clara. Por lo tanto, el PCA es una herram
 y en la preparación de datos para modelado predictivo.
 
 
+
+
+###################################################################################################################
+
+
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+# Generar un DataFrame de ejemplo con 70 variables y 100 observaciones
+np.random.seed(0)
+df = pd.DataFrame(np.random.rand(100, 70), columns=[f'Var{i+1}' for i in range(70)])
+
+# Estandarizar los datos
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(df)
+
+# Crear el modelo PCA y ajustar los datos
+pca = PCA()
+pca.fit(scaled_data)
+
+# Obtener las cargas (loadings)
+loadings = pca.components_.T
+
+# Seleccionar los componentes principales que deseas considerar (e.g., los primeros dos componentes)
+num_components = 2
+loadings_subset = loadings[:, :num_components]
+
+# Calcular la contribución de cada variable a los componentes principales seleccionados
+contributions = np.sum(np.abs(loadings_subset), axis=1)
+
+# Seleccionar las 10 variables originales con la mayor contribución
+num_variables = 10
+top_indices = np.argsort(contributions)[-num_variables:]
+
+# Mostrar las variables seleccionadas
+selected_variables = df.columns[top_indices]
+print("Variables seleccionadas:")
+print(selected_variables)
+
+
+
