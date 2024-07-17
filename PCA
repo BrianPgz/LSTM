@@ -39,3 +39,77 @@ for i in range(pca.n_components_):
     sorted_loadings = loadings_df.iloc[:, i].abs().sort_values(ascending=False)
     print(f'Component {i+1}:')
     print(sorted_loadings.head(n_top_variables))
+
+
+
+
+
+
+
+##############################################################################################################
+
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+
+# Generar un DataFrame de ejemplo con 70 variables y 100 observaciones
+np.random.seed(0)
+df = pd.DataFrame(np.random.rand(100, 70), columns=[f'Var{i+1}' for i in range(70)])
+
+# Estandarizar los datos
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(df)
+
+# Crear el modelo PCA y ajustar los datos
+pca = PCA()
+principalComponents = pca.fit_transform(scaled_data)
+
+# Varianza explicada por cada componente principal
+explained_variance = pca.explained_variance_ratio_
+cumulative_explained_variance = np.cumsum(explained_variance)
+
+# Mostrar la varianza explicada por cada componente principal
+print("Varianza explicada por cada componente principal:")
+for i, var in enumerate(explained_variance):
+    print(f"PC{i+1}: {var:.4f}")
+
+# Mostrar la varianza explicada acumulada
+print("\nVarianza explicada acumulada:")
+for i, var in enumerate(cumulative_explained_variance):
+    print(f"PC{i+1}: {var:.4f}")
+
+# Obtener las cargas de los componentes principales
+loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
+loadings_df = pd.DataFrame(loadings, columns=[f'PC{i+1}' for i in range(pca.n_components_)], index=df.columns)
+
+# Mostrar las primeras filas del DataFrame de cargas
+print("\nCargas de los componentes principales:")
+print(loadings_df.head())
+
+# Crear un DataFrame con los scores de los componentes principales
+scores_df = pd.DataFrame(principalComponents, columns=[f'PC{i+1}' for i in range(pca.n_components_)])
+
+# Graficar la varianza explicada acumulada
+plt.figure(figsize=(8,6))
+plt.plot(range(1, len(cumulative_explained_variance) + 1), cumulative_explained_variance, marker='o', linestyle='--')
+plt.xlabel('Número de Componentes Principales')
+plt.ylabel('Varianza Explicada Acumulada')
+plt.title('Codo de Scree Plot')
+plt.axhline(y=0.90, color='r', linestyle='--', label='90% Varianza Explicada')
+plt.legend(loc='best')
+plt.grid()
+plt.show()
+
+# Graficar los datos en el espacio de los primeros dos componentes principales
+plt.figure(figsize=(8,6))
+plt.scatter(scores_df['PC1'], scores_df['PC2'])
+plt.xlabel('Componente Principal 1')
+plt.ylabel('Componente Principal 2')
+plt.title('Gráfico de Dispersión de los Primeros Dos Componentes Principales')
+plt.show()
+
+
+
+
