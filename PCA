@@ -1,0 +1,41 @@
+import numpy as np
+import pandas as pd
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+
+# Suponiendo que tienes un DataFrame 'df' con tus datos
+# Aquí generamos un DataFrame de ejemplo
+np.random.seed(0)
+df = pd.DataFrame(np.random.rand(100, 70), columns=[f'Var{i+1}' for i in range(70)])
+
+# Estandarizar los datos
+scaler = StandardScaler()
+scaled_data = scaler.fit_transform(df)
+
+# Crear el modelo PCA y ajustar los datos
+pca = PCA(n_components=2)  # Especificar el número de componentes principales que deseas
+principalComponents = pca.fit_transform(scaled_data)
+
+# Crear un DataFrame con los componentes principales
+principalDf = pd.DataFrame(data=principalComponents, columns=['PC1', 'PC2'])
+
+# Mostrar la varianza explicada por cada componente principal
+explained_variance = pca.explained_variance_ratio_
+print('Varianza explicada por cada componente principal:')
+print(explained_variance)
+
+# Obtener las cargas de los componentes principales
+loadings = pca.components_.T * np.sqrt(pca.explained_variance_)
+
+# Crear un DataFrame con las cargas
+loadings_df = pd.DataFrame(loadings, columns=[f'PC{i+1}' for i in range(pca.n_components_)], index=df.columns)
+
+# Mostrar las primeras filas del DataFrame de cargas
+print(loadings_df.head())
+
+# Si deseas ver las variables más influyentes para cada componente principal
+n_top_variables = 5  # Número de variables más influyentes que deseas ver
+for i in range(pca.n_components_):
+    sorted_loadings = loadings_df.iloc[:, i].abs().sort_values(ascending=False)
+    print(f'Component {i+1}:')
+    print(sorted_loadings.head(n_top_variables))
