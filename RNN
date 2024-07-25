@@ -1,0 +1,107 @@
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import SimpleRNN, Dense
+import matplotlib.pyplot as plt
+
+# Supongamos que ya tienes tus datos en DataFrame
+# data = pd.DataFrame(...)
+
+# Dividir los datos en entrenamiento y prueba
+train_data = data[:int(0.8 * len(data))]
+test_data = data[int(0.8 * len(data)):]
+
+# Escalar los datos
+scaler = MinMaxScaler()
+scaled_train_data = scaler.fit_transform(train_data)
+scaled_test_data = scaler.transform(test_data)
+
+# Crear los conjuntos de entrenamiento y prueba
+# Asumimos que tenemos 12 pasos de tiempo y 17 características (15 X's + 2 y's)
+X_train, y_train1, y_train2 = [], [], []
+X_test, y_test1, y_test2 = [], [], []
+
+time_steps = 12
+n_features = 17
+
+for i in range(time_steps, len(scaled_train_data)):
+    X_train.append(scaled_train_data[i-time_steps:i, :-2])  # Las primeras 15 columnas son características
+    y_train1.append(scaled_train_data[i, -2])  # La penúltima columna es y1
+    y_train2.append(scaled_train_data[i, -1])  # La última columna es y2
+
+for i in range(time_steps, len(scaled_test_data)):
+    X_test.append(scaled_test_data[i-time_steps:i, :-2])
+    y_test1.append(scaled_test_data[i, -2])
+    y_test2.append(scaled_test_data[i, -1])
+
+X_train, y_train1, y_train2 = np.array(X_train), np.array(y_train1), np.array(y_train2)
+X_test, y_test1, y_test2 = np.array(X_test), np.array(y_test1), np.array(y_test2)
+
+# Crear y entrenar el modelo para y1
+model1 = Sequential()
+model1.add(SimpleRNN(50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+model1.add(SimpleRNN(50))
+model1.add(Dense(1))
+model1.compile(optimizer='adam', loss='mean_squared_error')
+
+model1.fit(X_train, y_train1, epochs=100, batch_size=32, validation_data=(X_test, y_test1), verbose=1)
+
+# Crear y entrenar el modelo para y2
+model2 = Sequential()
+model2.add(SimpleRNN(50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])))
+model2.add(SimpleRNN(50))
+model2.add(Dense(1))
+model2.compile(optimizer='adam', loss='mean_squared_error')
+
+model2.fit(X_train, y_train2, epochs=100, batch_size=32, validation_data=(X_test, y_test2), verbose=1)
+
+# Generar predicciones iniciales en el conjunto de prueba
+predictions1 = model1.predict(X_test)
+predictions2 = model2.predict(X_test)
+
+# Inicializar una lista para almacenar las predicciones futuras
+future_predictions1 = []
+future_predictions2 = []
+
+# Usar las últimas observaciones de prueba para predecir los próximos 24 meses
+input_seq = X_test[-1, :, :]  # Última secuencia del conjunto de prueba
+
+for _ in range(24):
+    # Realizar la predicción para y1
+    pred1 = model1.predict(input_seq.reshape(1, input_seq.shape[0], input_seq.shape[1]))
+    future_predictions1.append(pred1[0, 0])
+    
+    # Realizar la predicción para y2
+    pred2 = model2.predict(input_seq.reshape(1, input_seq.shape[0], input_seq.shape[1]))
+    future_predictions2.append(pred2[0, 0])
+    
+    # Actualizar input_seq agregando las nuevas predicciones y eliminando las más antiguas
+    new_input = np.append(input_seq[1:], np.array([[pred1[0, 0], pred2[0, 0]] + [0] * (n_features - 2)]), axis=0)  # Reemplaza una fila completa de 17 características
+    input_seq = new_input
+
+# Convertir las predicciones futuras a una serie temporal o DataFrame
+future_predictions1 = np.array(future_predictions1)
+future_predictions2 = np.array(future_predictions2)
+
+# Desescalar las predicciones futuras
+# Crear una matriz de ceros para las características y agregar las predicciones para desescalar
+dummy_features = np.zeros((future_predictions1.shape[0], n_features - 2))
+future_predictions_scaled1 = np.concatenate((dummy_features, future_predictions1.reshape(-1, 1), future_predictions2.reshape(-1, 1)), axis=1)
+
+# Desescalar las predicciones futuras
+future_predictions_descaled = scaler.inverse_transform(future_predictions_scaled1)
+
+# Crear una serie temporal con las predicciones futuras
+future_dates = pd.date_range(start=data.index[-1], periods=25, freq='M')[1:]
+future_series1 = pd.Series(future_predictions_descaled[:, -2].flatten(), index=future_dates)
+future_series2 = pd.Series(future_predictions_descaled[:, -1].flatten(), index=future_dates)
+
+# Visualizar los resultados
+plt.figure(figsize=(12, 6))
+plt.plot(data.index, data['merchandise'], label='Datos reales - Merchandise')
+plt.plot(future_series1.index, future_series1, label='Pronóstico - Merchandise', color='red')
+plt.plot(data.index, data['services'], label='Datos reales - Services')
+plt.plot(future_series2.index, future_series2, label='Pronóstico - Services', color='blue')
+plt.legend()
+plt.show()
